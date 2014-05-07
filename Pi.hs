@@ -125,10 +125,39 @@ typeExp env (ETup es) =
     else Left (head errors)
 
 typePat :: Gamma -> Pattern -> Typ -> Either String Gamma
-typePat = 
+typePat env (PVar nm) t =
+  if M.member nm env 
+  then Left ("Variable" ++ nm ++ "is reused.")
+  else Right (M.insert nm t env)
+typePat env (PTup ps) (TChan t) = Left "Get a TChan type when a tuple is expected."
+typePat env (PTup ps) (TTup ts) =
+  if length ps = length ts
+  then 
+    let pts = zip ps ts in
+    let f_tmp env (p, t) = typePat env p t in
+    let res = foldl f_tmp env pvs in
+    let (errors, res') = partitionEithers res in
+    if (errors = [])
+    then Right res'
+    else Left (head errors)
+  else
+    Left "Get a tuple with wrong size."
+typePat env Wild v = Right env
 
 checkPi :: Gamma -> Pi -> Either String ()
-checkPi = undefined
+checkPi env Nil = Right ()
+checkPi env (pi1 :|: pi2)
+  | (Right (), Right ()) <- (checkPi env pi1, checkPi env pi2) = Right ()
+  | (Left s, _)          <- (checkPi env pi1, checkPi env pi2) = Left s
+  | (_, Left s)          <- (checkPi env pi1, checkPi env pi2) = Left s
+  | otherwise                                                  = Left ""
+checkPi env (New nm t pi)
+  if M.member nm env 
+  then Left ("Variable" ++ nm ++ "is reused.")
+  else checkPi (M.insert nm (TChan t) env) pi
+checkPi env (Out nm e)
+  | 
+
 
 check :: Pi -> Either String ()
 check p = checkPi M.empty p
