@@ -114,10 +114,18 @@ printer s = Embed (\_ -> putStr $ s ++ "\n") Nil
 type Gamma = M.Map Name Typ
 
 typeExp :: Gamma -> Exp -> Either String Typ
-typeExp = undefined
+typeExp env (EVar nm) 
+  | Just t <- M.lookup nm env = Right t
+  | otherwise                 = Left (nm + "is a free variable.").
+typeExp env (ETup es) = 
+  let res = map (typeExp env) es in
+  let (errors, res') = partitionEithers res in
+    if (errors = [])
+    then Right res'
+    else Left (head errors)
 
 typePat :: Gamma -> Pattern -> Typ -> Either String Gamma
-typePat = undefined
+typePat = 
 
 checkPi :: Gamma -> Pi -> Either String ()
 checkPi = undefined
@@ -140,7 +148,20 @@ type Env = M.Map Name Value
 -- eval_p env p v 
 -- match a value v against a pattern p and extend environment env
 eval_p :: Env -> Pattern -> Value -> Env
-eval_p = undefined
+eval_p env (PVar nm) v = 
+  if M.member nm env 
+  then type_error "Variable" ++ nm ++ "is reused."
+  else M.insert nm v env
+eval_p env (PTup ps) (VChan c) = type_error "Get a VChan value when a tuple is expected."
+eval_p env (PTup ps) (VTup vs) =
+  if length ps = length vs
+  then 
+    let pvs = zip ps vs in
+    let f_tmp env (p, v) = eval_p env p v in
+    foldl f_tmp env pvs
+  else
+    type_error "Get a tuple with wrong size."
+eval_p env Wild v = env
 
 -- eval_e env e
 -- evaluates e to a value in environment env
@@ -150,6 +171,8 @@ eval_e env (ETup es) = VTup (eval_es env es)
   where
     eval_es env [] = []
     eval_es env (e:es) = eval_e env e : eval_es env es
+--- Hey, why not use built-in list.map here! ---
+
 
 run :: Env -> Pi -> IO ()
 run = undefined
