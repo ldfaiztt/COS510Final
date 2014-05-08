@@ -17,6 +17,7 @@ import Control.Monad.State
 
 import qualified Data.Map as M 
 import qualified Data.List as L
+import qualified Data.Either as E
 
 -- Syntax of the Pi Calculus
 
@@ -116,12 +117,12 @@ type Gamma = M.Map Name Typ
 typeExp :: Gamma -> Exp -> Either String Typ
 typeExp env (EVar nm) 
   | Just t <- M.lookup nm env = Right t
-  | otherwise                 = Left (nm + "is a free variable.").
+  | otherwise                 = Left (nm ++ "is a free variable.")
 typeExp env (ETup es) = 
   let res = map (typeExp env) es in
-  let (errors, res') = partitionEithers res in
-    if (errors = [])
-    then Right res'
+  let (errors, res') = E.partitionEithers res in
+    if (errors == [])
+    then Right (TTup res')
     else Left (head errors)
 
 typePat :: Gamma -> Pattern -> Typ -> Either String Gamma
@@ -131,15 +132,12 @@ typePat env (PVar nm) t =
   else Right (M.insert nm t env)
 typePat env (PTup ps) (TChan t) = Left "Get a TChan type when a tuple is expected."
 typePat env (PTup ps) (TTup ts) =
-  if length ps = length ts
+  if length ps == length ts
   then 
     let pts = zip ps ts in
-    let f_tmp env (p, t) = typePat env p t in
-    let res = foldl f_tmp env pvs in
-    let (errors, res') = partitionEithers res in
-    if (errors = [])
-    then Right res'
-    else Left (head errors)
+    let f_tmp (Right env) (p, t) = typePat env p t in
+    let f_tmp (Left s) (p, t) = (Left s) in
+    foldl f_tmp (Right env) pts
   else
     Left "Get a tuple with wrong size."
 typePat env Wild v = Right env
@@ -151,8 +149,8 @@ checkPi env (pi1 :|: pi2)
   | (Left s, _)          <- (checkPi env pi1, checkPi env pi2) = Left s
   | (_, Left s)          <- (checkPi env pi1, checkPi env pi2) = Left s
   | otherwise                                                  = Left ""
-checkPi env (New nm t pi)
-  if M.member nm env 
+checkPi env (New nm t pi) = 
+  if (M.member nm env)
   then Left ("Variable" ++ nm ++ "is reused.")
   else checkPi (M.insert nm (TChan t) env) pi
 checkPi env (Out nm e)
@@ -160,28 +158,24 @@ checkPi env (Out nm e)
     if (t1 == t2)
     then Right ()
     else Left "Output type error."
-  | otherwise                    <- Left "Error in Output"
+  | otherwise                                                              =
+    Left "Error in Output"
 checkPi env (Inp nm p pi)
   | Just t <- M.lookup nm env =  
-    let (errors, env') = (partitionEithers (typePat p t)) : [] in
-    if (errors = [])
+    let (errors, env') = E.partitionEithers ((typePat env p t) : []) in
+    if (errors == [])
     then Left (head errors)
     else checkPi (head env') pi
-  | Otherwise <- Left ("Free variable " ++ nm ++ " appears.")
-checkPi env (Inp nm p pi)
-  | Just t <- M.lookup nm env =  
-    let (errors, env') = (partitionEithers (typePat p t)) : [] in
-    if (errors = [])
-    then Left (head errors)
-    else checkPi (head env') pi
-  | Otherwise <- Left ("Free variable " ++ nm ++ " appears.")
+  | otherwise                 =
+    Left ("Free variable " ++ nm ++ " appears.")
 checkPi env (RepInp nm p pi)
   | Just t <- M.lookup nm env =  
-    let (errors, env') = (partitionEithers (typePat p t)) : [] in
-    if (errors = [])
+    let (errors, env') = E.partitionEithers ((typePat env p t) : []) in
+    if (errors == [])
     then Left (head errors)
     else checkPi (head env') pi
-  | Otherwise <- Left ("Free variable " ++ nm ++ " appears.")
+  | otherwise                 =
+    Left ("Free variable " ++ nm ++ " appears.")
 checkPi env (Embed _ pi) = checkPi env pi
 
 check :: Pi -> Either String ()
@@ -204,11 +198,11 @@ type Env = M.Map Name Value
 eval_p :: Env -> Pattern -> Value -> Env
 eval_p env (PVar nm) v = 
   if M.member nm env 
-  then type_error "Variable" ++ nm ++ "is reused."
+  then type_error ("Variable" ++ nm ++ "is reused.")
   else M.insert nm v env
 eval_p env (PTup ps) (VChan c) = type_error "Get a VChan value when a tuple is expected."
 eval_p env (PTup ps) (VTup vs) =
-  if length ps = length vs
+  if length ps == length vs
   then 
     let pvs = zip ps vs in
     let f_tmp env (p, v) = eval_p env p v in
