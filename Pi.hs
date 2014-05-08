@@ -156,8 +156,33 @@ checkPi env (New nm t pi)
   then Left ("Variable" ++ nm ++ "is reused.")
   else checkPi (M.insert nm (TChan t) env) pi
 checkPi env (Out nm e)
-  | 
-
+  | (Right (TChan t1), Right t2) <- (typeExp env (EVar nm), typeExp env e) = 
+    if (t1 == t2)
+    then Right ()
+    else Left "Output type error."
+  | otherwise                    <- Left "Error in Output"
+checkPi env (Inp nm p pi)
+  | Just t <- M.lookup nm env =  
+    let (errors, env') = (partitionEithers (typePat p t)) : [] in
+    if (errors = [])
+    then Left (head errors)
+    else checkPi (head env') pi
+  | Otherwise <- Left ("Free variable " ++ nm ++ " appears.")
+checkPi env (Inp nm p pi)
+  | Just t <- M.lookup nm env =  
+    let (errors, env') = (partitionEithers (typePat p t)) : [] in
+    if (errors = [])
+    then Left (head errors)
+    else checkPi (head env') pi
+  | Otherwise <- Left ("Free variable " ++ nm ++ " appears.")
+checkPi env (RepInp nm p pi)
+  | Just t <- M.lookup nm env =  
+    let (errors, env') = (partitionEithers (typePat p t)) : [] in
+    if (errors = [])
+    then Left (head errors)
+    else checkPi (head env') pi
+  | Otherwise <- Left ("Free variable " ++ nm ++ " appears.")
+checkPi env (Embed _ pi) = checkPi env pi
 
 check :: Pi -> Either String ()
 check p = checkPi M.empty p
