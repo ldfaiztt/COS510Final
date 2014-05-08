@@ -26,6 +26,40 @@ type BEnv = M.Map Name Bool
 -- sends a message on fchan if the boolean expression evaluates to false
 compile_b :: Name -> Name -> BoolExp -> Pi
 compile_b tchan fchan bexp = undefined
+compile_b tchan fchan (BVal True) = Out tchan ()
+compile_b tchan fchan (BVal False) = Out fchan ()
+compile_b tchan fchan (BVar var) = (Out req unitE)
+                         :|: (Inp tch unitP $ Out tchan unitE)
+                         :|: (Inp fch unitP $ Out fchan unitE)
+                         where req = var ++ "req"
+                               tch = var ++ "tch"
+                               fch = var ++ "fch"
+compile_b tchan fchan ((BoolExp b1) :&&: (BoolExp b2)) =
+    New b1t unitT $
+    New b1f unitT $
+    New b2t unitT $
+    New b2f unitT $
+    (compile_b b1t b1f b1) :|: (compile_b b2t b2f b2)
+    :|: (Inp b1t unitP $ (Inp b2t unitP $ Out tchan unitE)
+                               :|: (Inp b2f unitP $ Out fchan unitE))
+    :|: (Inp b1f unitP $ Out fchan unitE)
+    where b1t = tchan ++ fchan ++ "1t"
+          b1f = tchan ++ fchan ++ "1f"
+          b2t = tchan ++ fchan ++ "2t"
+          b2f = tchan ++ fchan ++ "2f"
+compile_b tchan fchan ((BoolExp b1) :||: (BoolExp b2)) =
+    New b1t unitT $
+    New b1f unitT $
+    New b2t unitT $
+    New b2f unitT $
+    (compile_b b1t b1f b1) :|: (compile_b b2t b2f b2)
+    :|: (Inp b1t unitP $ Out tchan unitE)
+    :|: (Inp b1f unitP $ (Inp b2t unitP $ Out tchan unitE)
+                               :|: (Inp b2f unitP $ Out fchan unitE))
+    where b1t = tchan ++ fchan ++ "1t"
+          b1f = tchan ++ fchan ++ "1f"
+          b2t = tchan ++ fchan ++ "2t"
+          b2f = tchan ++ fchan ++ "2f"
   
 
 -- TASK!
@@ -33,7 +67,18 @@ compile_b tchan fchan bexp = undefined
 -- communicates with a compiled Boolean expression containing free
 -- variables from the environment
 compile_benv :: BEnv -> Pi -> Pi
-compile_benv benv p = undefined
+compile_benv benv p = M.foldrWithKey fenv Nil BEnv
+
+fenv :: Name -> Bool -> Pi -> Pi
+fenv var val pi1 = pi1 :|: pi
+       where req = var ++ "req"
+             tch = var ++ "tch"
+             fch = var ++ "fch"
+			 pinext = if val then Out tch unitE else Out fch unitE
+			 pi =  New req unitT $
+                   New tch unitT $
+                   New fch unitT $
+                   RepInp req unitP pinext
 
 start_bool :: BEnv -> BoolExp -> IO ()
 start_bool benv bexp = 
