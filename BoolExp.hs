@@ -70,15 +70,16 @@ compile_benv :: BEnv -> Pi -> Pi
 compile_benv benv p = M.foldrWithKey fenv p benv
 
 fenv :: Name -> Bool -> Pi -> Pi
-fenv var val pi1 = pi1 :|: pi
-    where req = var ++ "req"
-          tch = var ++ "tch"
-          fch = var ++ "fch"
-          pinext = if val then Out tch unitE else Out fch unitE
-          pi =  New req unitT $
-                New tch unitT $
-                New fch unitT $
-                RepInp req unitP pinext
+fenv var val pi1 = New req unitT $
+                   New tch unitT $
+                   New fch unitT $
+                   pi1 :|: (RepInp req unitP pinext)
+                   where req = var ++ "req"
+                         tch = var ++ "tch"
+                         fch = var ++ "fch"
+                         pinext = if val
+                                  then Out tch unitE
+                                  else Out fch unitE
 
 start_bool :: BEnv -> BoolExp -> IO ()
 start_bool benv bexp = 
