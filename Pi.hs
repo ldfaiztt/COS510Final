@@ -223,7 +223,38 @@ eval_e env (ETup es) = VTup (eval_es env es)
 
 
 run :: Env -> Pi -> IO ()
-run = undefined
+run env Nil = return ()
+run env (pi1 :|: pi2) = parallel (run env pi1 : run env pi2 : [])
+run env (New nm t pi) =
+  if M.member nm env 
+  then type_error ("Variable" ++ nm ++ "is reused.")
+  else 
+    do
+      c <- newChan
+      let env' = M.insert nm (VChan c) env
+      run env' pi
+run env (Out nm e)
+  | VChan c <- env M.! nm = writeChan c (eval_e env e)
+  | otherwise             = type_error "Get a tuple when a VChan value is expected"
+run env (Inp nm p pi)
+  | VChan c <- env M.! nm = 
+    do
+      v <- readChan c
+      let env' = eval_p env p v
+      run env' pi
+  | otherwise             = type_error "Get a tuple when a VChan value is expected"
+run env (RepInp nm p pi)
+  | VChan c <- env M.! nm = 
+    do
+      v <- readChan c
+      let env' = eval_p env p v
+      run env' pi
+      run env (RepInp nm p pi)
+  | otherwise             = type_error "Get a tuple when a VChan value is expected"
+run env (Embed wtf pi) = 
+  do
+    wtf env
+    run env pi
 
 start :: Pi -> IO ()
 start p = run M.empty p
