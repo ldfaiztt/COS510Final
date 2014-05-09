@@ -162,15 +162,14 @@ compile_lam fresh n gamma (LVar x) = do
   return (xt, pi)
 compile_lam fresh n gamma (LAbs x xt exp) = do
   let c = "cvar" ++ x
-  let inc = "inc" ++ x
   let outc = "outc" ++ x
   let gamma' = M.insert x xt gamma
   (tnext, pinext) <- (compile_lam fresh outc gamma' exp)
   let t = LTArrow xt tnext
-  let pi = New inc (typeTrans xt)$
+  let pi = New c (typeTrans xt)$
            New outc (typeTrans tnext)$
-           pinext :|: (Out n (ETup [(EVar inc), (EVar outc)]))
-  return (xt, pi)
+           pinext :|: (Out n (ETup [(EVar c), (EVar outc)]))
+  return (t, pi)
 compile_lam fresh n gamma (exp1 :@: exp2) = do
   chanf <- fresh
   chanx <- fresh
@@ -186,6 +185,9 @@ compile_lam fresh n gamma (exp1 :@: exp2) = do
            (Inp chanfx (PVar var_res) $
            Out n (EVar var_res)))
   return (tfx, pi)
+compile_lam fresh n gamma (LEff io lam) = do
+  io
+  (compile_lam fresh n gamma lam)
   
 
 
@@ -200,7 +202,8 @@ start_lam e = do
       let fresh = nameGenerator r
       n <- fresh
       (t,pi) <- compile_lam fresh n M.empty e 
-      let wrap = New n (TChan $ typeTrans t) $ pi :|: Inp n Wild (printer "done!")
+      let wrap = New n (typeTrans t) $ pi :|: Inp n Wild (printer "done!")
+      start wrap
       case check wrap of
         Left err -> do
           putStrLn $ "Translated program does not type check.  Program:"
