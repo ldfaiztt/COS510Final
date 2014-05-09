@@ -125,6 +125,10 @@ typeExp env (ETup es) =
     then Right (TTup res')
     else Left (head errors)
 
+f_tmp :: Either String Gamma -> (Pattern, Typ) -> Either String Gamma
+f_tmp (Right env) (p, t) = typePat env p t
+f_tmp (Left s) (p, t) = Left s
+
 typePat :: Gamma -> Pattern -> Typ -> Either String Gamma
 typePat env (PVar nm) t = Right (M.insert nm t env)
 typePat env (PTup ps) (TChan t) = Left "Get a TChan type when a tuple is expected."
@@ -132,9 +136,7 @@ typePat env (PTup ps) (TTup ts) =
   if length ps == length ts
   then 
     let pts = zip ps ts in
-    let f_tmp (Right env) (p, t) = typePat env p t in
-    let f_tmp (Left s) (p, t) = (Left s) in
-    foldl f_tmp (Right env) pts
+      foldl f_tmp (Right env) pts
   else
     Left "Get a tuple with wrong size."
 typePat env Wild v = Right env
