@@ -126,7 +126,10 @@ typeExp env (ETup es) =
     else Left (head errors)
 
 typePat :: Gamma -> Pattern -> Typ -> Either String Gamma
-typePat env (PVar nm) t = Right (M.insert nm t env)
+typePat env (PVar nm) t =
+  if M.member nm env 
+  then Left ("Variable" ++ nm ++ "is reused.")
+  else Right (M.insert nm t env)
 typePat env (PTup ps) (TChan t) = Left "Get a TChan type when a tuple is expected."
 typePat env (PTup ps) (TTup ts) =
   if length ps == length ts
@@ -146,7 +149,10 @@ checkPi env (pi1 :|: pi2)
   | (Left s, _)          <- (checkPi env pi1, checkPi env pi2) = Left s
   | (_, Left s)          <- (checkPi env pi1, checkPi env pi2) = Left s
   | otherwise                                                  = Left ""
-checkPi env (New nm t pi) = checkPi (M.insert nm (TChan t) env) pi
+checkPi env (New nm t pi) = 
+  if (M.member nm env)
+  then Left ("Variable" ++ nm ++ "is reused.")
+  else checkPi (M.insert nm (TChan t) env) pi
 checkPi env (Out nm e)
   | (Right (TChan t1), Right t2) <- (typeExp env (EVar nm), typeExp env e) = 
     if (t1 == t2)
@@ -190,7 +196,10 @@ type Env = M.Map Name Value
 -- eval_p env p v 
 -- match a value v against a pattern p and extend environment env
 eval_p :: Env -> Pattern -> Value -> Env
-eval_p env (PVar nm) v = M.insert nm v env
+eval_p env (PVar nm) v = 
+  if M.member nm env 
+  then type_error ("Variable" ++ nm ++ "is reused.")
+  else M.insert nm v env
 eval_p env (PTup ps) (VChan c) = type_error "Get a VChan value when a tuple is expected."
 eval_p env (PTup ps) (VTup vs) =
   if length ps == length vs
@@ -217,10 +226,13 @@ run :: Env -> Pi -> IO ()
 run env Nil = return ()
 run env (pi1 :|: pi2) = parallel (run env pi1 : run env pi2 : [])
 run env (New nm t pi) =
-  do
-    c <- newChan
-    let env' = M.insert nm (VChan c) env
-    run env' pi
+  if M.member nm env 
+  then type_error ("Variable" ++ nm ++ "is reused.")
+  else 
+    do
+      c <- newChan
+      let env' = M.insert nm (VChan c) env
+      run env' pi
 run env (Out nm e)
   | VChan c <- env M.! nm = writeChan c (eval_e env e)
   | otherwise             = type_error "Get a tuple when a VChan value is expected"

@@ -24,7 +24,8 @@ test8 = (env3, Not (BVar y))
 test9 = (env3, Not (BVar y :&&: BVar x))
 test10 = (env3, BVar y :||: (BVar x :&&: BVar x))
 
-tests = [test1, test2, test3, test4, test5]
+-- TFT TF TF TT T 
+tests = [test10]
 
 run_tests :: [Test] -> IO ()
 run_tests ts = run_t 1 ts
