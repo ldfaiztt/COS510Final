@@ -155,27 +155,36 @@ compile_lam :: IO Name -> Name -> Gamma -> Lam -> IO (LTyp, Pi)
 compile_lam fresh n gamma LUnit = do
   return (LTUnit, Out n unitE)
 compile_lam fresh n gamma (LVar x) = do
-  let xt = M.lookup x gamma
+  let (Just xt) = M.lookup x gamma
   let c = "cvar" ++ x
   let p = "pvar" ++ x
   let pi = Inp c (PVar p) $ Out n (EVar p)
   return (xt, pi)
 compile_lam fresh n gamma (LAbs x xt exp) = do
-
+  let c = "cvar" ++ x
+  let inc = "inc" ++ x
+  let outc = "outc" ++ x
+  let gamma' = M.insert x xt gamma
+  (tnext, pinext) <- (compile_lam fresh outc gamma' exp)
+  let t = LTArrow xt tnext
+  let pi = New inc (typeTrans xt)$
+           New outc (typeTrans tnext)$
+           pinext :|: (Out n (ETup [(EVar inc), (EVar outc)]))
+  return (xt, pi)
 compile_lam fresh n gamma (exp1 :@: exp2) = do
   chanf <- fresh
   chanx <- fresh
   chanfx <- fresh
   var_res <- fresh
-  (LTArrow tx tfx, pif) <- compile_lam chanf gamma exp1
-  (tx, pix) <- compile_lam chanx gamma exp2                 
+  (LTArrow tx tfx, pif) <- (compile_lam fresh chanf gamma exp1)
+  (tx, pix) <- compile_lam fresh chanx gamma exp2                 
   -- here, I assume all lambda calculas expressions have passed type checking
   let pi = New chanf (typeTrans (LTArrow tx tfx)) $
-           pif :|: $
-           Inp chanf (PTup [PVar chanx, PVar chanfx]) $
-           pix :|: $
-           Inp chanfx (PVar var_res) $
-           Out (Evar n) (EVar var_res)
+           pif :|:
+           (Inp chanf (PTup [PVar chanx, PVar chanfx]) $
+           pix :|:
+           (Inp chanfx (PVar var_res) $
+           Out n (EVar var_res)))
   return (tfx, pi)
   
 
