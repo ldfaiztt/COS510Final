@@ -151,7 +151,8 @@ checkPi env (Out nm e)
   | (Right (TChan t1), Right t2) <- (typeExp env (EVar nm), typeExp env e) = 
     if (t1 == t2)
     then Right ()
-    else Left "Output type error."
+    else Left "Output type error. The channel name is " ++ nm ++ ". The channel type is " ++ (show t1) ++
+         ". The output value type is " + (show t2) "."
   | otherwise                                                              =
     Left "Error in Output"
 checkPi env (Inp nm p pi)
