@@ -142,9 +142,27 @@ typeTrans :: LTyp -> Typ
 typeTrans LTUnit = unitT
 typeTrans (LTArrow t1 t2) = TTup [TChan (typeTrans t1), TChan (typeTrans t2)]
 
+--data Lam
+--  = LUnit              -- unit:  ()
+--  | LVar Name          -- variables:  x
+--  | LAbs Name LTyp Lam -- lambda abstraction: \x:t.e
+--  | Lam :@: Lam        -- application:  f :@: e executes f on argument e
+--  | LEff (IO ()) Lam   -- run an effectful computation of your choice
+--                       -- see printL below for a useful example
+
 -- Second, implement your compiler
 compile_lam :: IO Name -> Name -> Gamma -> Lam -> IO (LTyp, Pi)
-compile_lam = undefined
+compile_lam fresh n gamma LUnit = do
+  return (LTUnit, Out n unitE)
+compile_lam fresh n gamma (LVar x) = do
+  let xt = M.lookup x gamma
+  let c = "cvar" ++ x
+  let p = "pvar" ++ x
+  let pi = Inp c (PVar p) $ Out n (EVar p)
+  return (xt, pi)
+compile_lam fresh n gamma (LAbs x xt exp) = do
+
+compile_lam fresh n gamma (exp1 :@: exp2) = do
 
 start_lam :: Lam -> IO ()
 start_lam e = do
