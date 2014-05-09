@@ -163,6 +163,23 @@ compile_lam fresh n gamma (LVar x) = do
 compile_lam fresh n gamma (LAbs x xt exp) = do
 
 compile_lam fresh n gamma (exp1 :@: exp2) = do
+  chanf <- fresh
+  chanx <- fresh
+  chanfx <- fresh
+  var_res <- fresh
+  (LTArrow tx tfx, pif) <- compile_lam chanf gamma exp1
+  (tx, pix) <- compile_lam chanx gamma exp2                 
+  -- here, I assume all lambda calculas expressions have passed type checking
+  let pi = New chanf (typeTrans (LTArrow tx tfx)) $
+           pif :|: $
+           Inp chanf (PTup [PVar chanx, PVar chanfx]) $
+           pix :|: $
+           Inp chanfx (PVar var_res) $
+           Out (Evar n) (EVar var_res)
+  return (tfx, pi)
+  
+
+
 
 start_lam :: Lam -> IO ()
 start_lam e = do
