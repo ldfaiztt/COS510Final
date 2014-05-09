@@ -161,7 +161,16 @@ compile_lam fresh n gamma (LVar x) = do
   let pi = Inp c (PVar p) $ Out n (EVar p)
   return (xt, pi)
 compile_lam fresh n gamma (LAbs x xt exp) = do
-
+  let c = "cvar" ++ x
+  let inc = "inc" ++ x
+  let outc = "outc" ++ x
+  let gamma' = M.insert x xt gamma
+  (tnext, pinext) <- (compile_lam fresh outc gamma' exp)
+  let t = LTArrow xt tnext
+  let pi = New inc $
+           New outc $
+           pinext :|: (Out n VTup [(VChan inc), (VChan outc)])
+  return (xt, pi)
 compile_lam fresh n gamma (exp1 :@: exp2) = do
 
 start_lam :: Lam -> IO ()
