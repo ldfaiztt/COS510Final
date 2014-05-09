@@ -151,24 +151,28 @@ checkPi env (Out nm e)
   | (Right (TChan t1), Right t2) <- (typeExp env (EVar nm), typeExp env e) = 
     if (t1 == t2)
     then Right ()
-    else Left "Output type error. The channel name is " ++ nm ++ ". The channel type is " ++ (show t1) ++
-         ". The output value type is " + (show t2) "."
+    else Left ("Output type error. The channel name is " ++ nm ++ ". The channel type is " ++ (show t1) ++
+         ". The output value type is " ++ (show t2) ++ ".")
   | otherwise                                                              =
     Left "Error in Output"
 checkPi env (Inp nm p pi)
-  | Just t <- M.lookup nm env =  
+  | Just (TChan t) <- M.lookup nm env =  
     let (errors, env') = E.partitionEithers ((typePat env p t) : []) in
     if (errors == [])
     then checkPi (head env') pi
     else Left (head errors)
+  | Just _ <- M.lookup nm env =  
+    Left "Input channel name does not represent a channel"
   | otherwise                 =
     Left ("Free variable " ++ nm ++ " appears.")
 checkPi env (RepInp nm p pi)
-  | Just t <- M.lookup nm env =  
+  | Just (TChan t) <- M.lookup nm env =  
     let (errors, env') = E.partitionEithers ((typePat env p t) : []) in
     if (errors == [])
     then checkPi (head env') pi
     else Left (head errors)
+  | Just _ <- M.lookup nm env =  
+    Left "Input channel name does not represent a channel"
   | otherwise                 =
     Left ("Free variable " ++ nm ++ " appears.")
 checkPi env (Embed _ pi) = checkPi env pi
