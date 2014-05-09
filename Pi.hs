@@ -158,16 +158,16 @@ checkPi env (Inp nm p pi)
   | Just t <- M.lookup nm env =  
     let (errors, env') = E.partitionEithers ((typePat env p t) : []) in
     if (errors == [])
-    then Left (head errors)
-    else checkPi (head env') pi
+    then checkPi (head env') pi
+    else Left (head errors)
   | otherwise                 =
     Left ("Free variable " ++ nm ++ " appears.")
 checkPi env (RepInp nm p pi)
   | Just t <- M.lookup nm env =  
     let (errors, env') = E.partitionEithers ((typePat env p t) : []) in
     if (errors == [])
-    then Left (head errors)
-    else checkPi (head env') pi
+    then checkPi (head env') pi
+    else Left (head errors)
   | otherwise                 =
     Left ("Free variable " ++ nm ++ " appears.")
 checkPi env (Embed _ pi) = checkPi env pi
